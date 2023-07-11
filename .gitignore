@@ -3,3 +3,6 @@
 
 # MacOS-specific info file
 .DS_Store
+
+# Build files
+dist/
