@@ -52,8 +52,8 @@ def main() -> None:
 
     video_url = (
         f"https://youtube.googleapis.com/youtube/v3/videos?id={video_id}"
-        "&part=statistics&key=AIzaSyBT0b-OYNZX6X9m3jmsRHIuLHzg9wVisek"
-        "&maxResults=1000&channelId=UCVRobwJfa8nHMfJI3C8Rgdw&order=date"
+        "&part=statistics&key={api_key}"
+        "&maxResults=1000&channelId={channel_id}&order=date"
     )
 
     video_res = requests.get(video_url).json()
