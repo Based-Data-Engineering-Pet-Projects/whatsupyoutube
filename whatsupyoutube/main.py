@@ -89,11 +89,13 @@ def main() -> None:
     )
 
     next_search_response = f"{base_url}/{next_search_url}"
-    next_page_search = requests.get(next_search_response)
+    
 
     # Creating the while loop that will loop through all pages of the Search api call
     """while next_page_token is not None:
-        next_page_search = next_search_url"""
+        next_page_search = requests.get(next_search_response)"""
+
+
          
 
     # Creating an empty list to store the video ids retrieved from the Search api call
