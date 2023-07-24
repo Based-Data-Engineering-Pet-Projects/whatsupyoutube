@@ -28,81 +28,91 @@ def create_df(search_results) -> pd.DataFrame:
     return pd.concat(df_array)
 
 
+
+
 def main() -> None:
     load_dotenv()
 
+
+    
 
 
     # Defining API Key and Channel ID variables
     api_key = get_env_var("API_Key")
     channel_id = get_env_var("Channel_Id")
     
-
+    
     # Base url and Search specific components that together construct the url needed to call from the Search API - https://developers.google.com/youtube/v3/docs/search
     base_url = "https://www.googleapis.com/youtube/v3"
     search_url = (
-        f"search?key={api_key}"
-        f"&channelId={channel_id}"
-        f"&part=snippet,id&order=date&maxResults=50"
+            f"search?key={api_key}"
+            f"&channelId={channel_id}"
+            f"&part=snippet,id&order=date&maxResults=50"
+        )
+
+    def get_search_data(base_url, search_url):
         
-    )
+        """
+        Getting data from the Search API
 
-    # Constructing Search url by combining base_url and search_url variables
-    request_url = f"{base_url}/{search_url}"
+        Params:
+        -----
+        base_url: the start of any Youtube url
+        search_url: the url needed to call from the Search API specifically
 
-
-    # Defining the variable that holds the json response of the Search url
-    search_response = requests.get(request_url).json()
-
-
-    # Indexing through the Search api call to the items key as it contains the data we're looking for
-    search_snippet = search_response["items"]
-    
-
-    # Utilizing the create_df function that will normalize the json in the items key and creates a DataFrame from it
-    search_df = create_df(search_snippet)
-
-
-    # Defining the variable that holds the json response of the Search url
-    search_response = requests.get(request_url).json()
-
-
-    # Indexing through the Search api call to the items key as it contains the data we're looking for
-    search_snippet = search_response["items"]
-
-
-    # Utilizing the create_df function that will normalize the json in the items key and creates a DataFrame from it
-    search_df = create_df(search_snippet)
-    
-
-    # Grabbing the next page token from the nextPageToken key from the top of the Search api call
-    next_page_token = search_response['nextPageToken']
-    
-
-    # Constructing the URL needed to loop through all pages of the Search api call
-    next_search_url = (
-        f"search?key={api_key}"
-        f"&channelId={channel_id}"
-        f"&part=snippet,id&order=date&maxResults=50"
-        f"&pageToken={next_page_token}"
+        Returns:
+        -----
+        dataframe that has all pages of the Search API data
         
-    )
+        
+        """
+        
+        
+        
+        # Constructing Search url by combining base_url and search_url variables
+        request_url = f"{base_url}/{search_url}"
 
-    next_search_response = f"{base_url}/{next_search_url}"
+
+        # Defining the variable that holds the json response of the Search url
+        search_response = requests.get(request_url).json()
+
+
+        # Indexing through the Search api call to the items key as it contains the data we're looking for
+        search_snippet = search_response["items"]
+
+        search_df = create_df(search_snippet)
     
+        next_page_token = search_response["nextPageToken"]
+        while next_page_token is not None:
+            search_url = (
+            f"search?key={api_key}"
+            f"&channelId={channel_id}"
+            f"&part=snippet,id&order=date&maxResults=50"
+            f"&pageToken={next_page_token}"
+            )
 
-    # Creating the while loop that will loop through all pages of the Search api call
-    """while next_page_token is not None:
-        next_page_search = requests.get(next_search_response)"""
+            next_request = f"{base_url}/{search_url}"
+
+            next_response = requests.get(next_request).json()
+
+            next_snippet = next_response["items"]
+
+            next_df = create_df(next_snippet)
+        
+
+        frames = [search_df, next_df]
+
+        return pd.concat(frames)
 
 
-         
+    search_function = get_search_data(base_url, search_url)
+    
 
     # Creating an empty list to store the video ids retrieved from the Search api call
     video_ids = []
   
     # Loops through the items key in the Search api call to create a list of video ids needed for the video statistics api call
-    for item in search_snippet:
+    for item in search_function:
         try:
             kind = item["id"]["kind"]
             if kind == "youtube#video":
