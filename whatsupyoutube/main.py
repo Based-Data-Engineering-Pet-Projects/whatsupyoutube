@@ -7,58 +7,141 @@ import pandas as pd
 import requests
 from dotenv import load_dotenv
 
+
+# Defining pretty print variable
 pp = pprint.PrettyPrinter(indent=4)
 
 
 class MissingEnvironmentVariable(Exception):
     pass
 
-
+# Function to get the environment variables
 def get_env_var(var_name: str) -> str | Exception:
     try:
         return os.environ[var_name]
     except KeyError:
         raise MissingEnvironmentVariable(f"{var_name} does not exist")
 
-
+# Function to normalize the json from the api call and create a dataframe
 def create_df(search_results) -> pd.DataFrame:
     df_array = [pd.DataFrame(pd.json_normalize(x)) for x in search_results]
     return pd.concat(df_array)
 
 
+
+
 def main() -> None:
     load_dotenv()
 
-    api_key = get_env_var("API_KEY")
 
-    channel_id = "UCVRobwJfa8nHMfJI3C8Rgdw"
-    page_token = ""
+    
 
+
+    # Defining API Key and Channel ID variables
+    api_key = get_env_var("API_Key")
+    channel_id = get_env_var("Channel_Id")
+    
+    
+    # Base url and Search specific components that together construct the url needed to call from the Search API - https://developers.google.com/youtube/v3/docs/search
     base_url = "https://www.googleapis.com/youtube/v3"
     search_url = (
-        f"search?key={api_key}"
-        f"&channelId={channel_id}"
-        f"&part=snippet,id&order=date&maxResults=1000{page_token}"
-    )
+            f"search?key={api_key}"
+            f"&channelId={channel_id}"
+            f"&part=snippet,id&order=date&maxResults=50"
+        )
 
-    request_url = f"{base_url}/{search_url}"
+    def get_search_data(base_url, search_url):
+        
+        """
+        Getting data from the Search API
 
-    search_response = requests.get(request_url).json()
-    search_snippet = search_response["items"]
+        Params:
+        -----
+        base_url: the start of any Youtube url
+        search_url: the url needed to call from the Search API specifically
 
-    search_df = create_df(search_snippet)
+        Returns:
+        -----
+        dataframe that has all pages of the Search API data
+        
+        
+        """
+        
+        
+        
+        # Constructing Search url by combining base_url and search_url variables
+        request_url = f"{base_url}/{search_url}"
 
-    video_id = search_df["id.videoId"]
 
+        # Defining the variable that holds the json response of the Search url
+        search_response = requests.get(request_url).json()
+
+
+        # Indexing through the Search api call to the items key as it contains the data we're looking for
+        search_snippet = search_response["items"]
+
+        search_df = create_df(search_snippet)
+    
+        next_page_token = search_response["nextPageToken"]
+        while next_page_token is not None:
+            search_url = (
+            f"search?key={api_key}"
+            f"&channelId={channel_id}"
+            f"&part=snippet,id&order=date&maxResults=50"
+            f"&pageToken={next_page_token}"
+            )
+
+            next_request = f"{base_url}/{search_url}"
+
+            next_response = requests.get(next_request).json()
+
+            next_snippet = next_response["items"]
+
+            next_df = create_df(next_snippet)
+        
+
+        frames = [search_df, next_df]
+
+        return pd.concat(frames)
+
+
+    search_function = get_search_data(base_url, search_url)
+    
+
+    # Creating an empty list to store the video ids retrieved from the Search api call
+    video_ids = []
+  
+    # Loops through the items key in the Search api call to create a list of video ids needed for the video statistics api call
+    for item in search_function:
+        try:
+            kind = item["id"]["kind"]
+            if kind == "youtube#video":
+                    video_ids.append(item["id"]["videoId"])
+        except KeyError:
+             print ("error")
+    
+    video_ids_updated = ','.join(video_ids)
+
+
+    # Constructing videos url for the videos api call - https://developers.google.com/youtube/v3/docs/videos
     video_url = (
-        f"https://youtube.googleapis.com/youtube/v3/videos?id={video_id}"
-        f"&part=statistics&key={api_key}"
-        f"&maxResults=1000&channelId={channel_id}&order=date"
+        f"https://youtube.googleapis.com/youtube/v3/videos?id={video_ids_updated}"
+        f"&part=statistics"
+        f"&key={api_key}"
     )
 
+    # Defining the variable that holds the json response of the Videos url
     video_res = requests.get(video_url).json()
+    
+    
+    # Indexing through the Videos api call to the items key as it contains the data we're looking for
+    video_res_items = video_res["items"]
 
-    pp.pprint(video_res)
+    # Creating video statistics dataframe
+    #print(create_df(video_res_items))
+
+   
+
 
 
 main()
